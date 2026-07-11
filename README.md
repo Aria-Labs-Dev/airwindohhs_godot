@@ -2,7 +2,7 @@
 
 An MIT-licensed GDExtension exposing the complete compatible [Airwindohhs](https://github.com/jinpavg/airwindohhs) catalog as native `AudioEffect` resources for Godot 4.6 and later.
 
-The current generated catalog contains 495 effects in upstream categories. Effects work as ordinary Godot bus processors without AriaEngine and can coexist with AriaEngine, `godot-csound`, or other audio-domain extensions.
+The current generated catalog contains 495 effects in upstream categories. 
 
 ## Architecture
 
