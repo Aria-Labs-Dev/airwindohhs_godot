@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "parameters": [
+    {
+      "effect_id": "amp_sims.chimeyguitar2",
+      "parameter_index": 0,
+      "minimum": 0.0,
+      "maximum": 0.95,
+      "reason": "The upstream algorithm produces non-finite output at compres=1.0."
+    },
+    {
+      "effect_id": "utility.softclock",
+      "parameter_index": 1,
+      "minimum": 0.05,
+      "maximum": 1.0,
+      "reason": "A zero count is undefined and produces non-finite output."
+    },
+    {
+      "effect_id": "utility.softclock2",
+      "parameter_index": 1,
+      "minimum": 0.05,
+      "maximum": 1.0,
+      "reason": "A zero count is undefined and produces non-finite output."
+    }
+  ]
+}

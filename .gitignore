@@ -1,0 +1,8 @@
+/build*/
+/demo/.godot/
+/demo/addons/airwindohhs_godot/bin/
+/demo/addons/airwindohhs_godot/airwindohhs_godot.gdextension
+/demo/addons/airwindohhs_godot/airwindohhs_godot.gdextension.uid
+__pycache__/
+*.pyc
+*.log

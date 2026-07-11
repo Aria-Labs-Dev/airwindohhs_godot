@@ -1,0 +1,9 @@
+{
+  "enabled_classes": [
+    "AudioEffect",
+    "AudioEffectInstance",
+    "AudioFrame",
+    "AudioServer",
+    "OS"
+  ]
+}
