@@ -53,7 +53,7 @@ Three unsafe raw endpoints have explicit narrower inspector ranges; no effects a
 
 ## Development method
 
-This project uses red/green/refactor TDD. Once a test or render baseline represents accepted behavior, a regression is fixed in production code. Changing an established test or baseline requires the human developer to approve the contract change.
+This project uses red/green/refactor TDD. Once a test or render baseline represents accepted behavior, a regression is fixed in production code. Changing an established test or baseline requires a human developer to approve the contract change.
 
 ## License
 
