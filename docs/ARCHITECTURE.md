@@ -24,8 +24,4 @@ All effects share the same adapter implementation. Per-effect source is limited 
 
 Resources and instances share a fixed-capacity `ParameterState`. The game/control thread stores normalized floats in lock-free atomics. The audio callback loads one snapshot per block and applies it before processing. The state is allocated and initialized before the instance is published; its size and metadata do not change during processing.
 
-The initial contract intentionally provides block-boundary automation. A future sample-accurate automation path should use bounded timestamped queues or AriaEngine scheduling without coupling this addon to AriaEngine's internal C++ classes.
-
-## Coexistence
-
-The extension has no AriaEngine or `godot-csound` dependency. Communication and routing occur through Godot streams, effects, buses, and control-thread APIs. Airwindohhs processors do not replace AriaEngine's eventual final output/limiter contract and are never inserted on Master automatically.
+The initial contract intentionally provides block-boundary automation.
