@@ -12,6 +12,11 @@ set(AIRWINDOHHS_GODOT_GODOT_CPP_PATH "" CACHE PATH "Existing godot-cpp checkout"
 set(AIRWINDOHHS_GODOT_AIRWINDOHHS_PATH "" CACHE PATH "Existing airwindohhs checkout")
 set(AIRWINDOHHS_GODOT_GODOT_EXECUTABLE "" CACHE FILEPATH "Godot 4.6 executable for smoke tests")
 
+if(AIRWINDOHHS_GODOT_BUILD_TESTS AND CMAKE_CROSSCOMPILING)
+    message(STATUS "Cross-compiling: test executables cannot run on the host, disabling tests")
+    set(AIRWINDOHHS_GODOT_BUILD_TESTS OFF)
+endif()
+
 if(NOT AIRWINDOHHS_GODOT_AIRWINDOHHS_PATH)
     get_filename_component(_sibling_airwindohhs "${CMAKE_CURRENT_SOURCE_DIR}/../airwindohhs" ABSOLUTE)
     if(EXISTS "${_sibling_airwindohhs}/CMakeLists.txt")
@@ -89,6 +94,7 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     target_compile_features(airwindohhs_godot PRIVATE cxx_std_17)
 
     if(MSVC)
+        target_compile_definitions(airwindohhs_godot PRIVATE _USE_MATH_DEFINES)
         target_compile_options(airwindohhs_godot PRIVATE /W4)
         if(AIRWINDOHHS_GODOT_WARNINGS_AS_ERRORS)
             target_compile_options(airwindohhs_godot PRIVATE /WX)
@@ -105,17 +111,42 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     endif()
 
     set(_addon_bin "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/airwindohhs_godot/bin")
-    if(APPLE)
+    if(ANDROID)
+        set(_platform "android")
+    elseif(IOS)
+        set(_platform "ios")
+    elseif(APPLE)
         set(_platform "macos")
     elseif(WIN32)
         set(_platform "windows")
     else()
         set(_platform "linux")
     endif()
+    # Android libraries for different ABIs share the bin directory, so the
+    # Godot arch feature tag has to be part of the file name.
+    set(_arch_suffix "")
+    if(ANDROID)
+        set(_abi "${CMAKE_ANDROID_ARCH_ABI}")
+        if(NOT _abi)
+            set(_abi "${ANDROID_ABI}")
+        endif()
+        if(_abi STREQUAL "arm64-v8a")
+            set(_arch_suffix ".arm64")
+        elseif(_abi STREQUAL "armeabi-v7a")
+            set(_arch_suffix ".arm32")
+        elseif(_abi STREQUAL "x86_64")
+            set(_arch_suffix ".x86_64")
+        elseif(_abi STREQUAL "x86")
+            set(_arch_suffix ".x86_32")
+        else()
+            message(FATAL_ERROR "No Godot arch tag mapped for Android ABI '${_abi}'")
+        endif()
+    endif()
+    # $<1:...> keeps multi-config generators (MSVC) from appending a per-config subdirectory.
     set_target_properties(airwindohhs_godot PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${_addon_bin}"
-        RUNTIME_OUTPUT_DIRECTORY "${_addon_bin}"
-        OUTPUT_NAME "airwindohhs_godot.${_platform}.$<IF:$<CONFIG:Debug>,template_debug,template_release>")
+        LIBRARY_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
+        RUNTIME_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
+        OUTPUT_NAME "airwindohhs_godot.${_platform}.$<IF:$<CONFIG:Debug>,template_debug,template_release>${_arch_suffix}")
     set(_extension_descriptor
         "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/airwindohhs_godot/airwindohhs_godot.gdextension")
     add_custom_command(TARGET airwindohhs_godot POST_BUILD
@@ -136,7 +167,9 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
         target_include_directories(catalog_validation PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
         target_include_directories(catalog_validation SYSTEM PRIVATE
             "${AIRWINDOHHS_GODOT_AIRWINDOHHS_PATH}/include")
-        if(NOT MSVC)
+        if(MSVC)
+            target_compile_definitions(catalog_validation PRIVATE _USE_MATH_DEFINES)
+        else()
             target_compile_options(catalog_validation PRIVATE -Wno-unused-value)
         endif()
         target_compile_features(catalog_validation PRIVATE cxx_std_17)

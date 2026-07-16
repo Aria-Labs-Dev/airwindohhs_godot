@@ -33,6 +33,8 @@ Without an existing checkout, CMake fetches pinned `godot-cpp` and the latest `j
 
 The development library is written to `demo/addons/airwindohhs_godot/bin/`. Open `demo/project.godot` as the shared testing ground for this extension and future AriaEngine work.
 
+Multi-platform release builds (Windows, macOS, iOS, Android) are scripted under `ci/`; see [TeamCity pipeline](docs/TEAMCITY.md).
+
 The active `.gdextension` descriptor is generated only after the shared library links successfully. An unbuilt checkout therefore opens safely instead of pointing Godot's macOS loader at a missing binary. Build the `airwindohhs_godot` target before expecting the effect classes to appear.
 
 ## Updating the catalog
