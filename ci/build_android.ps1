@@ -73,15 +73,47 @@ function Find-Ninja {
         "or set NINJA_PATH to a ninja.exe. Checked:`n  " + ($rejected -join "`n  "))
 }
 
+function Find-Cmake {
+    param([string]$NinjaPath)
+    $rejected = @()
+    if ($env:CMAKE_PATH) {
+        $explicit = $env:CMAKE_PATH.Trim().Trim('"')
+        if (Test-Path $explicit -PathType Leaf) { return $explicit }
+        $rejected += "CMAKE_PATH=$explicit is not a file"
+    } else {
+        $rejected += "CMAKE_PATH is not set in this process's environment"
+    }
+    $onPath = Get-Command cmake -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    $rejected += "cmake is not on PATH"
+    # The Android SDK cmake package ships cmake.exe next to ninja.exe.
+    if ($NinjaPath) {
+        $bundled = Join-Path (Split-Path $NinjaPath -Parent) "cmake.exe"
+        if (Test-Path $bundled -PathType Leaf) { return $bundled }
+        $rejected += "no cmake.exe next to $NinjaPath"
+    }
+    $standalone = "C:\Program Files\CMake\bin\cmake.exe"
+    if (Test-Path $standalone -PathType Leaf) { return $standalone }
+    $rejected += "no $standalone"
+    throw ("CMake not found. Install it or set CMAKE_PATH to a cmake.exe. " +
+        "Checked:`n  " + ($rejected -join "`n  "))
+}
+
 $ndk = Find-Ndk
 $ninja = Find-Ninja -NdkRoot $ndk
+$cmake = Find-Cmake -NinjaPath $ninja
+$cmakeVersion = [version](((& $cmake --version) | Select-Object -First 1) -replace '[^\d]*(\d+\.\d+\.\d+).*', '$1')
+if ($cmakeVersion -lt [version]"3.24") {
+    throw "CMake $cmakeVersion at $cmake is too old; this project requires >= 3.24."
+}
 Write-Host "Using NDK: $ndk"
 Write-Host "Using Ninja: $ninja"
+Write-Host "Using CMake: $cmake ($cmakeVersion)"
 
 foreach ($abi in $Abis) {
     foreach ($config in @("Debug", "Release")) {
         $buildDir = Join-Path $SourceDir "build-android-$abi-$($config.ToLower())"
-        cmake -S $SourceDir -B $buildDir -G Ninja `
+        & $cmake -S $SourceDir -B $buildDir -G Ninja `
             "-DCMAKE_TOOLCHAIN_FILE=$ndk\build\cmake\android.toolchain.cmake" `
             "-DCMAKE_MAKE_PROGRAM=$ninja" `
             "-DANDROID_ABI=$abi" `
@@ -89,7 +121,7 @@ foreach ($abi in $Abis) {
             "-DCMAKE_BUILD_TYPE=$config" `
             "-DAIRWINDOHHS_GODOT_BUILD_TESTS=OFF"
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        cmake --build $buildDir --parallel --target airwindohhs_godot
+        & $cmake --build $buildDir --parallel --target airwindohhs_godot
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 }
