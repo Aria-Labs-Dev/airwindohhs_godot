@@ -11,37 +11,70 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Find-Ndk {
-    foreach ($candidate in @($env:ANDROID_NDK_ROOT, $env:ANDROID_NDK_HOME)) {
-        if ($candidate -and (Test-Path "$candidate\build\cmake\android.toolchain.cmake")) {
+    $rejected = @()
+    foreach ($pair in @(
+            @("ANDROID_NDK_ROOT", $env:ANDROID_NDK_ROOT),
+            @("ANDROID_NDK_HOME", $env:ANDROID_NDK_HOME))) {
+        $name, $candidate = $pair
+        if (-not $candidate) {
+            $rejected += "$name is not set in this process's environment"
+            continue
+        }
+        $candidate = $candidate.Trim().Trim('"').TrimEnd('\', '/')
+        if (Test-Path "$candidate\build\cmake\android.toolchain.cmake") {
             return $candidate
         }
+        $rejected += "$name=$candidate has no build\cmake\android.toolchain.cmake"
     }
     foreach ($sdk in @($env:ANDROID_HOME, "$env:LOCALAPPDATA\Android\Sdk")) {
         if (-not $sdk) { continue }
         $newest = Get-ChildItem "$sdk\ndk" -Directory -ErrorAction SilentlyContinue |
             Sort-Object { [version]($_.Name -replace '[^\d.].*$', '') } |
             Select-Object -Last 1
-        if ($newest -and (Test-Path "$($newest.FullName)\build\cmake\android.toolchain.cmake")) {
+        if (-not $newest) {
+            $rejected += "no NDK directories under $sdk\ndk"
+        } elseif (Test-Path "$($newest.FullName)\build\cmake\android.toolchain.cmake") {
             return $newest.FullName
+        } else {
+            $rejected += "$($newest.FullName) has no build\cmake\android.toolchain.cmake"
         }
     }
-    throw "Android NDK not found. Set ANDROID_NDK_ROOT."
+    throw ("Android NDK not found. Set ANDROID_NDK_ROOT. Checked:`n  " +
+        ($rejected -join "`n  "))
 }
 
 function Find-Ninja {
+    param([string]$NdkRoot)
+    $rejected = @()
+    if ($env:NINJA_PATH) {
+        $explicit = $env:NINJA_PATH.Trim().Trim('"')
+        if (Test-Path $explicit -PathType Leaf) { return $explicit }
+        $rejected += "NINJA_PATH=$explicit is not a file"
+    } else {
+        $rejected += "NINJA_PATH is not set in this process's environment"
+    }
     $onPath = Get-Command ninja -ErrorAction SilentlyContinue
     if ($onPath) { return $onPath.Source }
-    foreach ($sdk in @($env:ANDROID_HOME, "$env:LOCALAPPDATA\Android\Sdk")) {
+    $rejected += "ninja is not on PATH"
+    $sdkRoots = @($env:ANDROID_HOME, "$env:LOCALAPPDATA\Android\Sdk")
+    if ($NdkRoot) {
+        # NDKs installed through the SDK manager live at <sdk>\ndk\<version>,
+        # and the SDK's optional cmake package bundles ninja.exe.
+        $sdkRoots += Split-Path (Split-Path $NdkRoot -Parent) -Parent
+    }
+    foreach ($sdk in $sdkRoots) {
         if (-not $sdk) { continue }
         $bundled = Get-ChildItem "$sdk\cmake\*\bin\ninja.exe" -ErrorAction SilentlyContinue |
             Select-Object -Last 1
         if ($bundled) { return $bundled.FullName }
+        $rejected += "no cmake\*\bin\ninja.exe under $sdk"
     }
-    throw "Ninja not found. Install it or add the Android SDK cmake package."
+    throw ("Ninja not found. Install it, add the Android SDK cmake package, " +
+        "or set NINJA_PATH to a ninja.exe. Checked:`n  " + ($rejected -join "`n  "))
 }
 
 $ndk = Find-Ndk
-$ninja = Find-Ninja
+$ninja = Find-Ninja -NdkRoot $ndk
 Write-Host "Using NDK: $ndk"
 Write-Host "Using Ninja: $ninja"
 
