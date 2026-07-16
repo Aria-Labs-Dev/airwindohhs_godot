@@ -99,9 +99,59 @@ function Find-Cmake {
         "Checked:`n  " + ($rejected -join "`n  "))
 }
 
+# Runs a candidate interpreter and returns the real executable path, or $null.
+# Store/app-execution aliases are zero-byte shims, so candidates must be
+# executed, not just stat'ed.
+function Resolve-Python {
+    param([string]$Candidate)
+    try {
+        $resolved = & $Candidate -c "import sys; print(sys.executable)" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $resolved) { return "$resolved".Trim() }
+    } catch {}
+    return $null
+}
+
+function Find-Python {
+    $rejected = @()
+    if ($env:PYTHON_PATH) {
+        $explicit = $env:PYTHON_PATH.Trim().Trim('"')
+        $resolved = Resolve-Python $explicit
+        if ($resolved) { return $resolved }
+        $rejected += "PYTHON_PATH=$explicit did not run"
+    } else {
+        $rejected += "PYTHON_PATH is not set in this process's environment"
+    }
+    foreach ($name in @("python", "py")) {
+        $onPath = Get-Command $name -ErrorAction SilentlyContinue
+        if ($onPath) {
+            $resolved = Resolve-Python $onPath.Source
+            if ($resolved) { return $resolved }
+        }
+        $rejected += "$name is not on PATH (or did not run)"
+    }
+    $userRoots = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.FullName }
+    $globs = @("$env:ProgramFiles\Python3*\python.exe") +
+        ($userRoots | ForEach-Object { @(
+            "$_\AppData\Local\Programs\Python\Python3*\python.exe",
+            "$_\AppData\Local\Python\pythoncore-3*\python.exe") })
+    foreach ($glob in $globs) {
+        $found = Get-ChildItem $glob -ErrorAction SilentlyContinue |
+            Sort-Object FullName | Select-Object -Last 1
+        if ($found) {
+            $resolved = Resolve-Python $found.FullName
+            if ($resolved) { return $resolved }
+        }
+    }
+    $rejected += "no runnable python.exe under $env:ProgramFiles or C:\Users\*\AppData\Local"
+    throw ("Python not found. Install Python 3.9+ or set PYTHON_PATH to a " +
+        "python.exe. Checked:`n  " + ($rejected -join "`n  "))
+}
+
 $ndk = Find-Ndk
 $ninja = Find-Ninja -NdkRoot $ndk
 $cmake = Find-Cmake -NinjaPath $ninja
+$python = Find-Python
 $cmakeVersion = [version](((& $cmake --version) | Select-Object -First 1) -replace '[^\d]*(\d+\.\d+\.\d+).*', '$1')
 if ($cmakeVersion -lt [version]"3.24") {
     throw "CMake $cmakeVersion at $cmake is too old; this project requires >= 3.24."
@@ -109,6 +159,7 @@ if ($cmakeVersion -lt [version]"3.24") {
 Write-Host "Using NDK: $ndk"
 Write-Host "Using Ninja: $ninja"
 Write-Host "Using CMake: $cmake ($cmakeVersion)"
+Write-Host "Using Python: $python"
 
 foreach ($abi in $Abis) {
     foreach ($config in @("Debug", "Release")) {
@@ -119,6 +170,7 @@ foreach ($abi in $Abis) {
             "-DANDROID_ABI=$abi" `
             "-DANDROID_PLATFORM=$AndroidPlatform" `
             "-DCMAKE_BUILD_TYPE=$config" `
+            "-DPython3_EXECUTABLE=$python" `
             "-DAIRWINDOHHS_GODOT_BUILD_TESTS=OFF"
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         & $cmake --build $buildDir --parallel --target airwindohhs_godot
