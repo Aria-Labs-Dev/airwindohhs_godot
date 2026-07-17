@@ -8,7 +8,22 @@ reloadable = true
 
 macos.debug = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.macos.template_debug.dylib"
 macos.release = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.macos.template_release.dylib"
+ios.debug = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.ios.template_debug.xcframework"
+ios.release = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.ios.template_release.xcframework"
 linux.debug.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.linux.template_debug.so"
 linux.release.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.linux.template_release.so"
 windows.debug.x86_64 = "res://addons/airwindohhs_godot/bin/airwindohhs_godot.windows.template_debug.dll"
 windows.release.x86_64 = "res://addons/airwindohhs_godot/bin/airwindohhs_godot.windows.template_release.dll"
+android.debug.arm64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_debug.arm64.so"
+android.release.arm64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_release.arm64.so"
+android.debug.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_release.x86_64.so"
+
+[dependencies]
+
+ios.debug = {
+    "res://addons/airwindohhs_godot/bin/libgodot-cpp.ios.template_debug.xcframework": ""
+}
+ios.release = {
+    "res://addons/airwindohhs_godot/bin/libgodot-cpp.ios.template_release.xcframework": ""
+}

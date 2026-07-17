@@ -128,7 +128,10 @@ protected:
                    std::string_view upstream_name, std::string_view short_description,
                    std::string_view tags) {
         static_assert(Effect::kNumParameters <= static_cast<int>(ParameterState::kCapacity));
-        Effect probe;
+        // Some Airwindows effects embed multi-megabyte delay lines. Constructing a
+        // metadata probe by value can exhaust the 1 MiB iOS main-thread stack before
+        // the effect instance itself is ever created.
+        const auto probe = std::make_unique<Effect>();
         effect_id_ = to_godot(effect_id);
         category_ = to_godot(category);
         upstream_name_ = to_godot(upstream_name);
@@ -143,10 +146,10 @@ protected:
         property_names_.reserve(Effect::kNumParameters);
         parameter_ids_.reserve(Effect::kNumParameters);
         for (int index = 0; index < Effect::kNumParameters; ++index) {
-            const float value = static_cast<float>(probe.get_parameter_default(index));
+            const float value = static_cast<float>(probe->get_parameter_default(index));
             defaults_.push_back(value);
             parameters_->store(static_cast<std::size_t>(index), value);
-            const auto parameter_name = to_godot(probe.get_parameter_name(index));
+            const auto parameter_name = to_godot(probe->get_parameter_name(index));
             const auto property_slug = slugify(parameter_name, index);
             property_names_.emplace_back("parameters/" + property_slug);
             parameter_ids_.push_back(effect_id_ + "." + property_slug);

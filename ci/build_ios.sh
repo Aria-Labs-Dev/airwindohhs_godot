@@ -2,8 +2,8 @@
 # Cross-compiles the iOS (device, arm64) debug + release libraries.
 # Requirements on the agent: Xcode with the iOS SDK, CMake >= 3.24,
 # Python 3.9+, git.
-# Godot 4.2+ wraps the produced dylibs into frameworks at export time; add an
-# xcframework step here if simulator slices are ever needed.
+# Produces device-only arm64 XCFrameworks for the extension and godot-cpp.
+# Simulator support would require additional slices.
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

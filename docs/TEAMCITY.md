@@ -41,7 +41,7 @@ bash ci/build_ios.sh
 Artifact paths:
 
 ```
-demo/addons/airwindohhs_godot/bin/*.dylib => bin
+demo/addons/airwindohhs_godot/bin/** => bin
 ```
 
 ## 3. `Package Addon` (any agent with Python 3.9+)
@@ -63,10 +63,10 @@ python ci/package_addon.py --bin-dir staging/bin --output dist/airwindohhs_godot
 Artifact path: `dist/airwindohhs_godot_addon.zip`.
 
 The packager copies the `.gdextension` descriptor, `generated/catalog.json`,
-LICENSE, and THIRD_PARTY.md next to the binaries and fails the build if any
-descriptor entry for a shipping platform (`--platforms`, default
-windows,macos,ios,android) has no binary. The zip extracts as
-`addons/airwindohhs_godot/` directly into a Godot project root.
+LICENSE, and THIRD_PARTY.md next to the binaries and XCFramework directories.
+It fails the build if any library or dependency entry for a shipping platform
+(`--platforms`, default windows,macos,ios,android) has no artifact. The zip
+extracts as `addons/airwindohhs_godot/` directly into a Godot project root.
 
 ## Notes
 
@@ -76,9 +76,9 @@ windows,macos,ios,android) has no binary. The zip extracts as
 - Android ships arm64 for devices plus x86_64 for emulator testing. Add ABIs
   by passing `-Abis` to `ci/build_android.ps1` — the descriptor and
   `CMakeLists.txt` arch map already cover arm32/x86_32 naming.
-- iOS builds a device-only arm64 dylib; Godot 4.2+ wraps it into a framework
-  at export time. Simulator support would require an xcframework step in
-  `ci/build_ios.sh`.
+- iOS builds device-only arm64 XCFrameworks for the extension and `godot-cpp`,
+  targeting iOS 12.0 by default. Set `IOS_DEPLOYMENT_TARGET` to override the
+  minimum version. Simulator slices are not currently built.
 - Each build directory fetches pinned `godot-cpp` and latest `airwindohhs`
   via FetchContent. To avoid re-cloning on every build, pre-clone on the agent
   and pass `-DAIRWINDOHHS_GODOT_GODOT_CPP_PATH=...` /

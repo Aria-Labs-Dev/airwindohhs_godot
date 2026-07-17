@@ -1,3 +1,5 @@
 .DS_Store
 /build/
+.build/
+tests/__pycache__/
 /demo/addons/airwindohhs_godot/bin/

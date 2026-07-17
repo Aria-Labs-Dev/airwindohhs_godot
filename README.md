@@ -37,6 +37,38 @@ Multi-platform release builds (Windows, macOS, iOS, Android) are scripted under 
 
 The active `.gdextension` descriptor is generated only after the shared library links successfully. An unbuilt checkout therefore opens safely instead of pointing Godot's macOS loader at a missing binary. Build the `airwindohhs_godot` target before expecting the effect classes to appear.
 
+### iOS
+
+Build both XCFramework variants with the physical-device SDK:
+
+```sh
+IOS_SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-12.0}"
+
+cmake -S . -B .build/ios-debug \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DAIRWINDOHHS_GODOT_GODOT_CPP_PATH=/path/to/godot-cpp
+cmake --build .build/ios-debug --parallel
+
+cmake -S . -B .build/ios-release \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_SYSROOT="$IOS_SDK" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DAIRWINDOHHS_GODOT_GODOT_CPP_PATH=/path/to/godot-cpp
+cmake --build .build/ios-release --parallel
+```
+
+The builds place Airwindohhs and its `godot-cpp` dependency XCFrameworks in
+`demo/addons/airwindohhs_godot/bin/`. Projects hosting more than one static C++
+GDExtension should make every descriptor reference the same compatible
+`godot-cpp` XCFramework rather than exporting duplicate binding archives.
+
 ## Updating the catalog
 
 Update the sibling Airwindohhs checkout to its latest default branch, then run:

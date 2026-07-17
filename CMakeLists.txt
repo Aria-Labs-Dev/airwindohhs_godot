@@ -4,6 +4,7 @@ project(airwindohhs_godot VERSION 0.1.0 LANGUAGES CXX)
 
 include(CTest)
 include(FetchContent)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(AIRWINDOHHS_GODOT_BUILD_EXTENSION "Build the Godot GDExtension" ON)
 option(AIRWINDOHHS_GODOT_BUILD_TESTS "Build tests" ON)
@@ -53,10 +54,23 @@ if(AIRWINDOHHS_GODOT_BUILD_TESTS)
         COMMAND "${Python3_EXECUTABLE}" -m unittest tests/test_demo_activation.py)
     set_tests_properties(demo_activation_tests PROPERTIES
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME ios_export_tests
+        COMMAND "${Python3_EXECUTABLE}" -m unittest tests/test_ios_export.py)
+    set_tests_properties(ios_export_tests PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME addon_packaging_tests
+        COMMAND "${Python3_EXECUTABLE}" -m unittest tests/test_package_addon.py)
+    set_tests_properties(addon_packaging_tests PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     set(GODOTCPP_API_VERSION "4.6" CACHE STRING "Godot API target" FORCE)
+    if(CMAKE_BUILD_TYPE MATCHES "^[Rr]elease$")
+        set(GODOTCPP_TARGET "template_release" CACHE STRING "Godot target" FORCE)
+    elseif(CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
+        set(GODOTCPP_TARGET "template_debug" CACHE STRING "Godot target" FORCE)
+    endif()
     set(GODOTCPP_BUILD_PROFILE "${CMAKE_CURRENT_SOURCE_DIR}/config/godot_cpp_profile.json"
         CACHE PATH "Minimal godot-cpp build profile" FORCE)
     if(AIRWINDOHHS_GODOT_GODOT_CPP_PATH)
@@ -81,10 +95,17 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     endif()
 
     include(generated/sources.cmake)
-    add_library(airwindohhs_godot SHARED
-        src/audio_effect.cpp
-        src/register_types.cpp
-        ${AIRWINDOHHS_GODOT_GENERATED_SOURCES})
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        add_library(airwindohhs_godot STATIC
+            src/audio_effect.cpp
+            src/register_types.cpp
+            ${AIRWINDOHHS_GODOT_GENERATED_SOURCES})
+    else()
+        add_library(airwindohhs_godot SHARED
+            src/audio_effect.cpp
+            src/register_types.cpp
+            ${AIRWINDOHHS_GODOT_GENERATED_SOURCES})
+    endif()
     target_link_libraries(airwindohhs_godot PRIVATE godot-cpp Airwindohhs::Airwindohhs)
     target_include_directories(airwindohhs_godot PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -92,6 +113,9 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     target_include_directories(airwindohhs_godot SYSTEM PRIVATE
         "${AIRWINDOHHS_GODOT_AIRWINDOHHS_PATH}/include")
     target_compile_features(airwindohhs_godot PRIVATE cxx_std_17)
+    set_target_properties(airwindohhs_godot PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN YES)
 
     if(MSVC)
         target_compile_definitions(airwindohhs_godot PRIVATE _USE_MATH_DEFINES)
@@ -113,7 +137,7 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
     set(_addon_bin "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/airwindohhs_godot/bin")
     if(ANDROID)
         set(_platform "android")
-    elseif(IOS)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         set(_platform "ios")
     elseif(APPLE)
         set(_platform "macos")
@@ -142,11 +166,38 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
             message(FATAL_ERROR "No Godot arch tag mapped for Android ABI '${_abi}'")
         endif()
     endif()
-    # $<1:...> keeps multi-config generators (MSVC) from appending a per-config subdirectory.
-    set_target_properties(airwindohhs_godot PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
-        RUNTIME_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
-        OUTPUT_NAME "airwindohhs_godot.${_platform}.$<IF:$<CONFIG:Debug>,template_debug,template_release>${_arch_suffix}")
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set_target_properties(airwindohhs_godot PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/ios"
+            OUTPUT_NAME "airwindohhs_godot.${_platform}.${GODOTCPP_TARGET}.arm64")
+
+        find_program(AIRWINDOHHS_GODOT_XCODEBUILD_EXECUTABLE
+            NAMES xcodebuild REQUIRED NO_CMAKE_FIND_ROOT_PATH)
+        set(_airwindohhs_xcframework
+            "${_addon_bin}/libairwindohhs_godot.${_platform}.${GODOTCPP_TARGET}.xcframework")
+        set(_godot_cpp_xcframework
+            "${_addon_bin}/libgodot-cpp.${_platform}.${GODOTCPP_TARGET}.xcframework")
+        add_custom_command(TARGET airwindohhs_godot POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${_addon_bin}"
+            COMMAND "${CMAKE_COMMAND}" -E rm -rf "${_airwindohhs_xcframework}"
+            COMMAND "${AIRWINDOHHS_GODOT_XCODEBUILD_EXECUTABLE}" -create-xcframework
+                -library "$<TARGET_FILE:airwindohhs_godot>"
+                -output "${_airwindohhs_xcframework}"
+            COMMAND "${CMAKE_COMMAND}" -E rm -rf "${_godot_cpp_xcframework}"
+            COMMAND "${AIRWINDOHHS_GODOT_XCODEBUILD_EXECUTABLE}" -create-xcframework
+                -library "$<TARGET_FILE:godot-cpp>"
+                -output "${_godot_cpp_xcframework}"
+            COMMENT "Packaging the iOS GDExtension static libraries as XCFrameworks"
+            VERBATIM)
+    else()
+        # $<1:...> keeps multi-config generators (MSVC) from appending a
+        # per-config subdirectory.
+        set_target_properties(airwindohhs_godot PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
+            RUNTIME_OUTPUT_DIRECTORY "$<1:${_addon_bin}>"
+            OUTPUT_NAME "airwindohhs_godot.${_platform}.$<IF:$<CONFIG:Debug>,template_debug,template_release>${_arch_suffix}")
+    endif()
     set(_extension_descriptor
         "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/airwindohhs_godot/airwindohhs_godot.gdextension")
     add_custom_command(TARGET airwindohhs_godot POST_BUILD
