@@ -1,7 +1,8 @@
 # TeamCity release pipeline
 
-Three build configurations produce a single addon zip containing binaries for
-Windows, macOS, iOS, and Android. All build logic lives in [`ci/`](../ci);
+Per-platform build configurations feed a final packaging configuration that
+produces a single addon zip containing binaries for Windows, macOS, iOS, and
+Android. All build logic lives in [`ci/`](../ci);
 TeamCity steps are one-line script invocations so the pipeline is testable
 locally and changes are code-reviewed.
 
@@ -57,21 +58,37 @@ demo/addons/airwindohhs_godot/bin/** => bin
 
 ## 3. `Package Addon` (any agent with Python 3.9+)
 
-Snapshot + artifact dependencies on both build configurations, with artifact
-rules dropping their `bin` outputs into `staging/bin`:
+Depends on every platform build configuration, twice over:
+
+- A **snapshot dependency** on each, so one packaging run corresponds to one
+  VCS revision built consistently across all platforms.
+- An **artifact dependency** on each, set to **"Build from the same chain"**
+  (not "Last successful build" — that can mix revisions), with the rule:
 
 ```
-Build Windows + Android :: bin/** => staging/bin
-Build macOS + iOS       :: bin/** => staging/bin
+bin/** => staging/bin
 ```
 
-Step:
+All platform libraries have distinct names, so they merge safely into one
+`staging/bin` directory.
+
+Step — on a Windows agent (auto-discovers Python via `ci/common.ps1`):
 
 ```
-python ci/package_addon.py --bin-dir staging/bin --output dist/airwindohhs_godot_addon.zip
+powershell -File ci/package_addon.ps1 --bin-dir staging/bin --output dist/airwindohhs_godot_addon.zip
+```
+
+or on a Mac agent:
+
+```
+python3 ci/package_addon.py --bin-dir staging/bin --output dist/airwindohhs_godot_addon.zip
 ```
 
 Artifact path: `dist/airwindohhs_godot_addon.zip`.
+
+Put the VCS trigger on this configuration; the snapshot dependencies pull the
+four platform builds into the chain automatically. To stamp releases, add
+`%build.number%` to the `--output` filename.
 
 The packager copies the `.gdextension` descriptor, `generated/catalog.json`,
 LICENSE, and THIRD_PARTY.md next to the binaries and XCFramework directories.
