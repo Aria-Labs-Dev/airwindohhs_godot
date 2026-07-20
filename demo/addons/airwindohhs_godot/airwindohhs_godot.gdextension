@@ -19,6 +19,7 @@ android.release.arm64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot
 android.debug.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_debug.x86_64.so"
 android.release.x86_64 = "res://addons/airwindohhs_godot/bin/libairwindohhs_godot.android.template_release.x86_64.so"
 
+
 [dependencies]
 
 ios.debug = {

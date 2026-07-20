@@ -12,11 +12,17 @@ Python 3.9+, git, Android NDK, Ninja (standalone or the Android SDK `cmake`
 package). Optional: `GODOT_EXECUTABLE` env pointing at a Godot console binary
 to run the headless smoke test.
 
+CMake, Python, Ninja, and the NDK are auto-discovered even when the agent
+service's PATH lacks them (see `ci/common.ps1`); pin any of them with the
+`env.CMAKE_PATH`, `env.PYTHON_PATH`, `env.NINJA_PATH`, or
+`env.ANDROID_NDK_ROOT` TeamCity parameters.
+
 Steps (PowerShell):
 
 ```
-powershell -File ci/build_windows.ps1
-powershell -File ci/build_android.ps1
+powershell -File ci/build_windows.ps1   # compile: windows libs + test executables
+powershell -File ci/test_windows.ps1    # run the test suite (separate step)
+powershell -File ci/build_android.ps1   # cross-compile android libs
 ```
 
 Artifact paths:

@@ -220,6 +220,10 @@ if(AIRWINDOHHS_GODOT_BUILD_EXTENSION)
             "${AIRWINDOHHS_GODOT_AIRWINDOHHS_PATH}/include")
         if(MSVC)
             target_compile_definitions(catalog_validation PRIVATE _USE_MATH_DEFINES)
+            # The harness stack-allocates effects, and Airwindows reverbs embed
+            # multi-megabyte state arrays. Match the 8 MB default stack of
+            # macOS/Linux instead of the 1 MB Windows default.
+            target_link_options(catalog_validation PRIVATE /STACK:8388608)
         else()
             target_compile_options(catalog_validation PRIVATE -Wno-unused-value)
         endif()
