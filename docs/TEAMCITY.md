@@ -44,8 +44,9 @@ CMake is auto-discovered even when the agent daemon's PATH misses Homebrew
 Steps (bash):
 
 ```
-bash ci/build_macos.sh
-bash ci/build_ios.sh
+bash ci/build_macos.sh   # compile: macos libs + test executables
+bash ci/test_macos.sh    # run the test suite (separate step)
+bash ci/build_ios.sh     # cross-compile ios libs
 ```
 
 Artifact paths:
