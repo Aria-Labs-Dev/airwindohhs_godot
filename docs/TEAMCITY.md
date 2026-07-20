@@ -37,6 +37,10 @@ demo/addons/airwindohhs_godot/bin/*.so => bin
 Agent requirements: Xcode with the iOS SDK, CMake >= 3.24, Python 3.9+, git.
 Optional: `GODOT_EXECUTABLE` for the smoke test.
 
+CMake is auto-discovered even when the agent daemon's PATH misses Homebrew
+(`/opt/homebrew/bin`, `/usr/local/bin`, and `CMake.app` are searched — see
+`ci/common.sh`); pin it with an `env.CMAKE_PATH` TeamCity parameter if needed.
+
 Steps (bash):
 
 ```

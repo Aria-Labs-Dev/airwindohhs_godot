@@ -7,14 +7,19 @@
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$SOURCE_DIR/ci/common.sh"
+
+CMAKE="$(find_cmake)"
+CTEST="$(find_ctest "$CMAKE")"
+echo "Using CMake: $CMAKE"
 
 for config in Debug Release; do
     build_dir="$SOURCE_DIR/build-macos-$(echo "$config" | tr '[:upper:]' '[:lower:]')"
-    cmake -S "$SOURCE_DIR" -B "$build_dir" \
+    "$CMAKE" -S "$SOURCE_DIR" -B "$build_dir" \
         -DCMAKE_BUILD_TYPE="$config" \
         -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
         ${GODOT_EXECUTABLE:+-DAIRWINDOHHS_GODOT_GODOT_EXECUTABLE="$GODOT_EXECUTABLE"}
-    cmake --build "$build_dir" --parallel
+    "$CMAKE" --build "$build_dir" --parallel
 done
 
-ctest --test-dir "$SOURCE_DIR/build-macos-debug" --output-on-failure
+"$CTEST" --test-dir "$SOURCE_DIR/build-macos-debug" --output-on-failure

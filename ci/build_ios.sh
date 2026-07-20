@@ -7,15 +7,19 @@
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$SOURCE_DIR/ci/common.sh"
 IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-12.0}"
+
+CMAKE="$(find_cmake)"
+echo "Using CMake: $CMAKE"
 
 for config in Debug Release; do
     build_dir="$SOURCE_DIR/build-ios-$(echo "$config" | tr '[:upper:]' '[:lower:]')"
-    cmake -S "$SOURCE_DIR" -B "$build_dir" \
+    "$CMAKE" -S "$SOURCE_DIR" -B "$build_dir" \
         -DCMAKE_SYSTEM_NAME=iOS \
         -DCMAKE_OSX_ARCHITECTURES=arm64 \
         -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
         -DCMAKE_BUILD_TYPE="$config" \
         -DAIRWINDOHHS_GODOT_BUILD_TESTS=OFF
-    cmake --build "$build_dir" --parallel --target airwindohhs_godot
+    "$CMAKE" --build "$build_dir" --parallel --target airwindohhs_godot
 done
