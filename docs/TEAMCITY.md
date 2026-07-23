@@ -46,15 +46,61 @@ Steps (bash):
 
 ```
 bash ci/build_macos.sh   # compile: macos libs + test executables
+bash ci/sign_macos.sh    # Developer ID sign + notarize the dylibs
 bash ci/test_macos.sh    # run the test suite (separate step)
 bash ci/build_ios.sh     # cross-compile ios libs
 ```
+
+`sign_macos.sh` runs before the tests so the tested bytes are the shipped
+bytes. It skips (exit 0) if the signing parameters below are unset, so a
+developer building locally without the certificate is not blocked.
 
 Artifact paths:
 
 ```
 demo/addons/airwindohhs_godot/bin/** => bin
 ```
+
+### macOS code signing + notarization
+
+Downloaded copies of an **unsigned** dylib carry the `com.apple.quarantine`
+attribute, and Gatekeeper blocks the Godot editor from loading them unless the
+user clears it by hand. Signing the dylibs with a Developer ID Application
+identity and notarizing them removes that friction: notarization registers the
+signed binaries' code hashes with Apple, and those exact binaries then pass
+Gatekeeper's online check wherever they appear — including inside the final
+addon zip, so the `Package Addon` config needs no changes. Loose dylibs cannot
+be stapled, so a fully offline Mac's first load still needs network once.
+
+The signing identity must be a **Developer ID Application** certificate — an
+"Apple Development"/"Apple Distribution" cert signs cleanly but notarization
+rejects it as `Invalid`.
+
+One-time provisioning on the Mac agent:
+
+1. Import the team's Developer ID Application certificate + key into a keychain
+   the agent account can read (`security find-identity -v -p codesigning` shows
+   the identity string).
+2. Store notary credentials as a keychain profile (App Store Connect API key is
+   preferred for CI — it does not expire like an app-specific password):
+
+   ```
+   xcrun notarytool store-credentials "airwindohhs-notary" \
+     --key /path/AuthKey_XXXX.p8 --key-id KEYID --issuer ISSUER-UUID
+   ```
+
+Then set these TeamCity parameters on the macOS build configuration:
+
+```
+env.AIRWINDOHHS_SIGNING_IDENTITY = Developer ID Application: Team Name (TEAMID)
+env.AIRWINDOHHS_NOTARY_PROFILE   = airwindohhs-notary
+```
+
+For a daemon agent (locked login keychain), also set
+`env.AIRWINDOHHS_SIGNING_KEYCHAIN` and a secret
+`env.AIRWINDOHHS_KEYCHAIN_PASSWORD`. Read a failed submission's reasons with
+`xcrun notarytool log <submission-id> --keychain-profile airwindohhs-notary`
+(the script dumps this automatically on failure).
 
 ## 3. `Package Addon` (any agent with Python 3.9+)
 
@@ -112,5 +158,7 @@ extracts as `addons/airwindohhs_godot/` directly into a Godot project root.
   and pass `-DAIRWINDOHHS_GODOT_GODOT_CPP_PATH=...` /
   `-DAIRWINDOHHS_GODOT_AIRWINDOHHS_PATH=...`, or keep build directories
   between runs (they are incremental).
-- macOS dylibs are unsigned; for distribution outside the team, add
-  codesigning/notarization to `ci/build_macos.sh`.
+- macOS dylibs are Developer ID signed and notarized by `ci/sign_macos.sh` when
+  the signing parameters are set, so downloaded copies load without a Gatekeeper
+  prompt. Without those parameters they ship unsigned and need
+  `xattr -dr com.apple.quarantine`.
